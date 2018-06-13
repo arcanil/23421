@@ -1,0 +1,9 @@
+{
+	"name": "MenuBuilder",
+	"description": "Library for managing settings, default values and menus of mods programmatically in Lua",
+	"blt_version": 2,
+	"priority": 500,
+		"pre_hooks": [
+		{ "hook_id": "lib/setups/setup", "script_path": "MenuBuilder.lua" }
+	]
+}
