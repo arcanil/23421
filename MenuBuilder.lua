@@ -1,10 +1,19 @@
-local function get_subtable(hierarchy, tbl)
-	for _, nxt in ipairs(hierarchy) do
-		if not tbl[nxt] then tbl[nxt] = {} end
-		tbl = tbl[nxt]
+local function get_subtable(hierarchy, tbl, add_empty)
+	local tmp = tbl
+
+	for _, nxt in ipairs(hierarchy or {}) do
+		if not tmp[nxt] then 
+			if add_empty then
+				tmp[nxt] = {}
+			else
+				return nil
+			end
+		end
+
+		tmp = tmp[nxt]
 	end
 	
-	return tbl
+	return tmp
 end
 
 
@@ -52,14 +61,44 @@ function MenuModBase:settings() return self._settings end
 function MenuModBase:defaults() return self._defaults end
 function MenuModBase:menu_items() return self._menu_items end
 
+--[[
+	Builds a menu for a mod and menu structure, adding it to the BLT mod options menu or a specified parent menu
+	Params:
+		nodes: the menu node list provided by the BLT menu hook
+		menu_data: the structure of the menu to build. A table containing an "id" string to define the name, a set of enumerated items to define the menu items to add, and a "sub_menus" table containing enumerated tables of the same structure to define sub-menus
+		back_clbk: string containing the name of the function to call when the menu is exited. This function must also be manually added to the Payday 2 MenuCallbackHandler class
+		parent_menu_id: optional string name of menu to add this menu to. Useful in combination with the add_blank_blt_menu function to re-use menus for multiple mods. If not specified, the parent menu will be the BLT mod options menu
+		
+		Ezample manu_data structure:
+			{	
+				id = "main",
+				{ "divider", "divider", { size = 24 }},
+				{ "unit_type", "input", { default = 1.15, float = true,  }},
+				{ "enabled", "toggle", { default = false }},
+				sub_menus = {
+					{
+						id = "multipliers",
+						{ "damage", "slider", { default = 1, min = 0, max = 1, step = 0.1 }}
+					},
+					{
+						id = "addends",
+						{ "damage", "slider", { default = 0, min = 0, max = 10, step = 1, round = 0 }}
+					},
+				}
+			}
+]]
 function MenuModBase:build_menu(nodes, menu_data, back_clbk, parent_menu_id)
 	MenuBuilder.build_menu(nodes, self, menu_data, back_clbk, parent_menu_id)
+end
+
+function MenuModBase:has_settings(hierarchy)
+	return get_subtable(hierarchy, self._settings) and true or false
 end
 
 function MenuModBase:get_value(hierarchy, setting, failsafe)
 	local tbl = get_subtable(hierarchy, self._settings)
 	
-	if tbl[setting] ~= nil then
+	if tbl and tbl[setting] ~= nil then
 		return tbl[setting]
 	else
 		local default = self:get_default_value(hierarchy, setting)
@@ -73,12 +112,12 @@ function MenuModBase:get_value(hierarchy, setting, failsafe)
 end
 
 function MenuModBase:get_default_value(hierarchy, setting)
-	local tbl = get_subtable(hierarchy, self._defaults)
+	local tbl = get_subtable(hierarchy, self._defaults, true)
 	return tbl[setting]
 end
 
 function MenuModBase:set_value(hierarchy, setting, value)
-	local tbl = get_subtable(hierarchy, self._settings)
+	local tbl = get_subtable(hierarchy, self._settings, true)
 	
 	if tbl[setting] ~= value then
 		tbl[setting] = value
@@ -87,12 +126,12 @@ function MenuModBase:set_value(hierarchy, setting, value)
 end
 
 function MenuModBase:set_default_value(hierarchy, setting, value)
-	local tbl = get_subtable(hierarchy, self._defaults)
+	local tbl = get_subtable(hierarchy, self._defaults, true)
 	tbl[setting] = value
 end
 
 function MenuModBase:add_menu_items(hierarchy, added_items)
-	local tbl = get_subtable(hierarchy,self._menu_items)
+	local tbl = get_subtable(hierarchy, self._menu_items, true)
 	
 	for _, item_data in ipairs(added_items) do
 		table.insert(tbl, item_data)
@@ -119,7 +158,7 @@ end
 
 function MenuModBase:reload_items(hierarchy)
 	for _, data in ipairs(get_subtable(hierarchy, self._menu_items)) do
-		data.item.reload_clbk(data.item)
+		data.reload_clbk(data.item)
 		
 		local gui_node = data.item:parameters().gui_node
 		if gui_node then
@@ -164,17 +203,37 @@ end
 MenuBuilder = MenuBuilder or class()
 
 MenuBuilder.BLT_OPTIONS_MENU_ID = "blt_options"
+MenuBuilder.LOCALIZATION_STRINGS = {}
+
+--[[
+	Adds an empty menu directly to the BLT mod options menu. Useful for making plugin-style mods where multiple mods share a single main menu. To add submenus, use build_menu with the parent_menu_id
+	Params:
+		nodes: the menu node list provided by the BLT menu hook
+		menu_data: table of menu parameters, at minimum an "id" string attribute defining the menu name, with optional "title" and "desc" strings for hard-coded localization
+]]
+function MenuBuilder.add_blank_blt_menu(nodes, menu_data)
+	if not (MenuHelper.menus and MenuHelper.menus[menu_data.id]) then
+		MenuCallbackHandler[menu_data.id .. "_back_clbk"] = function(self, item) end
+	
+		MenuHelper:NewMenu(menu_data.id)
+		nodes[menu_data.id] = MenuHelper:BuildMenu(menu_data.id, { back_callback = menu_data.id .. "_back_clbk" })
+		MenuHelper:AddMenuItem(nodes[MenuBuilder.BLT_OPTIONS_MENU_ID], menu_data.id, menu_data.id .. "_title", menu_data.id .. "_desc")
+		
+		if menu_data.title then MenuBuilder._add_localization_string(menu_data.id .. "_title", menu_data.title) end
+		if menu_data.desc then MenuBuilder._add_localization_string(menu_data.id .. "_desc", menu_data.desc) end
+	end
+end
 
 function MenuBuilder.build_menu(nodes, mod, menu_data, back_clbk, parent_menu_id)
 	parent_menu_id = parent_menu_id or MenuBuilder.BLT_OPTIONS_MENU_ID
 
 	if nodes[MenuBuilder.BLT_OPTIONS_MENU_ID] then
 		MenuBuilder._initialize_menu(mod, menu_data, {})
-		MenuBuilder._finalize_menu(nodes, mod, menu_data, parent_menu_id, back_clbk)
+		MenuBuilder._finalize_menu(nodes, mod:name(), menu_data, parent_menu_id, back_clbk)
 	end
 end
 
-function MenuBuilder.init_templates()
+function MenuBuilder._init_templates()
 	local function default_init_value(mod, hierarchy, setting, failsafe)
 		return mod:get_value(hierarchy, setting, failsafe)
 	end
@@ -289,6 +348,13 @@ function MenuBuilder._initialize_menu(mod, menu_data, hierarchy)
 			desc = string.format("%s_desc", localization_id)
 		}
 		
+		if i_data.title then
+			MenuBuilder._add_localization_string(localization_id .. "_title", i_data.title)
+		end
+		if i_data.desc then
+			MenuBuilder._add_localization_string(localization_id .. "_desc", i_data.desc)
+		end
+		
 		mod:set_default_value(hierarchy, i_name, i_data.default)
 		
 		if i_type == "divider" then
@@ -359,29 +425,37 @@ function MenuBuilder._initialize_menu(mod, menu_data, hierarchy)
 	end
 end
 
-function MenuBuilder._finalize_menu(nodes, mod, menu_data, parent_menu_id, back_clbk)
-	local prefixed_menu_id = string.format("%s_%s", mod:name(), menu_data.id)
+function MenuBuilder._finalize_menu(nodes, prefix, menu_data, parent_menu_id, back_clbk)
+	local prefixed_menu_id = string.format("%s_%s", prefix, menu_data.id)
 	
 	nodes[prefixed_menu_id] = MenuHelper:BuildMenu(prefixed_menu_id, { back_callback = back_clbk })
 	MenuHelper:AddMenuItem(nodes[parent_menu_id], prefixed_menu_id, prefixed_menu_id .. "_title", prefixed_menu_id .. "_desc")
 	
+	if menu_data.title then
+		MenuBuilder._add_localization_string(prefixed_menu_id .. "_title", menu_data.title)
+	end
+	if menu_data.desc then
+		MenuBuilder._add_localization_string(prefixed_menu_id .. "_desc", menu_data.desc)
+	end
+	
 	for _, sub_menu_data in pairs(menu_data.sub_menus or {}) do
-		MenuBuilder._finalize_menu(nodes, mod, sub_menu_data, prefixed_menu_id, back_clbk)
+		MenuBuilder._finalize_menu(nodes, prefix, sub_menu_data, prefixed_menu_id, back_clbk)
 	end
 end
 
+function MenuBuilder._add_localization_string(id, text)
+	if LocalizationManager and LocalizationManager.add_localized_strings then
+		LocalizationManager:add_localized_strings({ [id] = text })
+	else
+		MenuBuilder.LOCALIZATION_STRINGS[id] = text
+	end
+end
 
 --Initialize the static item template table
-MenuBuilder.init_templates()
+MenuBuilder._init_templates()
 
 
-
-
-
-
-
-
-
-
-
-
+Hooks:Add("LocalizationManagerPostInit", "LocalizationManagerPostInit_MenuBuilder_localization", function(self)
+	self:add_localized_strings(MenuBuilder.LOCALIZATION_STRINGS)
+	MenuBuilder.LOCALIZATION_STRINGS = {}
+end)
