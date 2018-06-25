@@ -41,7 +41,7 @@ function MenuBuilder.initialize_menu(nodes, mod, data, main_menu_id, parent_menu
 	for id, node_data in pairs(data) do
 		--Add each node to the lookup table for the initiators
 		local node_id = string.format("%s_%s", mod:name(), id)
-		MenuBuilderInitiator.NODE_DATA[node_id] = { mod = mod, node_data = node_data, id = id, items = {} }
+		MenuBuilderInitiator.NODE_DATA[node_id] = { mod = mod, node_data = node_data, id = id }
 		
 		--Set the back and focus callbacks for the node
 		local node_params = nodes[node_id]:parameters()

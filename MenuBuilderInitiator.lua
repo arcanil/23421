@@ -89,7 +89,6 @@ end
 
 function MenuBuilderInitiator:_clear(node)
 	node:clean_items()
-	self._node_data.items = {}
 end
 
 function MenuBuilderInitiator:_create_item(node, i_type, i_name, i_data)
@@ -120,8 +119,6 @@ function MenuBuilderInitiator:_create_item(node, i_type, i_name, i_data)
 		if new_item then
 			self:_set_item_parameters(i_type, i_name, new_item, i_data)
 			node:add_item(new_item)
-			
-			table.insert(self._node_data.items, new_item)
 			
 			--Slider fix from BLT to fix override that BLT apparently adds
 			if i_type == "slider" then new_item.dirty_callback = nil end
