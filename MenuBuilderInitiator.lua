@@ -23,6 +23,12 @@ function MenuBuilderInitiator:refresh_node(node)
 end
 
 function MenuBuilderInitiator:refresh(node)
+	for _, item in ipairs(node:items()) do
+		if item.reload_value then
+			item.reload_value(item)
+		end
+	end
+	
 	return node
 end
 
@@ -92,6 +98,8 @@ function MenuBuilderInitiator:_clear(node)
 end
 
 function MenuBuilderInitiator:_create_item(node, i_type, i_name, i_data)
+	--printf("MenuBuilderInitiator:_create_item(%s, %s, %s)", tostring(node:parameters().name), tostring(i_type), tostring(i_name))
+
 	local create_clbk = self["_create_" .. i_type]
 	
 	if create_clbk then

@@ -7,34 +7,32 @@ MenuBuilder = MenuBuilder or class()
 MenuBuilder.BLT_OPTIONS_MENU_ID = "blt_options"
 MenuBuilder.TEMPLATES = {}
 MenuBuilder.LOCALIZATION_STRINGS = {}
-MenuBuilder.MENUS = {}
+MenuBuilder._NODE_CLBKS = {}
 
-function MenuBuilder.create_menu_nodes(nodes, mod)
-	for id, node in pairs(nodes or {}) do
-		if type(node) ~= "table" then
-			node = {}
-		end
-		
-		local name = string.format("%s_%s", mod:name(), id)
-		
-		table.insert(MenuBuilder.MENUS, {
-			name = name,
-			topic_id = node.title or (name .. "_title"),
-			_meta = "node",
-			modifier = node.initiator or "MenuBuilderInitiator",
-			refresh = node.initiator or "MenuBuilderInitiator",
-			update = node.initiator or "MenuBuilderInitiator",
-			gui_class = node.gui_class,
-		})
-	end
+function MenuBuilder.create_menu_nodes(menu_node_clbk, mod)
+	table.insert(MenuBuilder._NODE_CLBKS, { mod = mod, clbk = menu_node_clbk })
 end
 
 function MenuBuilder.insert_nodes(node_table)
-	for _, data in ipairs(MenuBuilder.MENUS) do
-		table.insert(node_table, table.deep_map_copy(data))
+	for _, data in ipairs(MenuBuilder._NODE_CLBKS) do
+		local nodes = data.clbk(data.mod) or {}
+		
+		for _, node in ipairs(nodes) do
+			local full_id = string.format("%s_%s", data.mod:name(), node.id)
+			
+			table.insert(node_table, {
+				name = full_id,
+				topic_id = node.title or (full_id .. "_title"),
+				_meta = "node",
+				modifier = node.initiator or "MenuBuilderInitiator",
+				refresh = node.initiator or "MenuBuilderInitiator",
+				update = node.initiator or "MenuBuilderInitiator",
+				gui_class = node.gui_class,
+			})
+		end
 	end
 	
-	MenuBuilder.MENUS = {}
+	MenuBuilder._NODE_CLBKS = {}
 end
 
 function MenuBuilder.initialize_menu(nodes, mod, data, main_menu_id, parent_menu_id)
