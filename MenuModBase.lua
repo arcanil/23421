@@ -31,8 +31,12 @@ function MenuModBase:init(name, settings_file, localization_file)
 	self:load()
 end
 
-function MenuModBase:initialize_menu(nodes, data, main_menu_id, parent_menu_id)
-	MenuBuilder.initialize_menu(nodes, self, data, main_menu_id, parent_menu_id)
+function MenuModBase:menu_nodes()
+	return {}
+end
+
+function MenuModBase:setup_menu(nodes)
+
 end
 
 function MenuModBase:post_require(script)

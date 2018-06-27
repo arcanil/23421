@@ -7,22 +7,17 @@ MenuBuilder = MenuBuilder or class()
 MenuBuilder.BLT_OPTIONS_MENU_ID = "blt_options"
 MenuBuilder.TEMPLATES = {}
 MenuBuilder.LOCALIZATION_STRINGS = {}
-MenuBuilder._NODE_CLBKS = {}
-
-function MenuBuilder.create_menu_nodes(menu_node_clbk, mod)
-	table.insert(MenuBuilder._NODE_CLBKS, { mod = mod, clbk = menu_node_clbk })
-end
 
 function MenuBuilder.insert_nodes(node_table)
-	for _, data in ipairs(MenuBuilder._NODE_CLBKS) do
-		local nodes = data.clbk(data.mod) or {}
+	for name, mod in pairs(MenuModRepository.MODS) do
+		local nodes = mod:menu_nodes()
 		
 		for _, node in ipairs(nodes) do
-			local full_id = string.format("%s_%s", data.mod:name(), node.id)
+			local id = string.format("%s_%s", name, node.id)
 			
 			table.insert(node_table, {
-				name = full_id,
-				topic_id = node.title or (full_id .. "_title"),
+				name = id,
+				topic_id = node.title or (id .. "_title"),
 				_meta = "node",
 				modifier = node.initiator or "MenuBuilderInitiator",
 				refresh = node.initiator or "MenuBuilderInitiator",
@@ -31,8 +26,6 @@ function MenuBuilder.insert_nodes(node_table)
 			})
 		end
 	end
-	
-	MenuBuilder._NODE_CLBKS = {}
 end
 
 function MenuBuilder.initialize_menu(nodes, mod, data, main_menu_id, parent_menu_id)
@@ -130,7 +123,17 @@ end
 MenuBuilder._init_templates()
 
 
-Hooks:Add("LocalizationManagerPostInit", "LocalizationManagerPostInit_MenuBuilder_localization", function(self)
+Hooks:Add("MenuManagerPopulateCustomMenus", "MenuBuilder_PopulateModMenus", function(self, nodes)
+	for name, mod in pairs(MenuModRepository.MODS) do
+		mod:setup_menu(nodes)
+	end
+end)
+
+Hooks:Add("LocalizationManagerPostInit", "MenuBuilder_LoadModLocalization", function(self)
+	for name, mod in pairs(MenuModRepository.MODS) do
+		LocalizationManager:load_localization_file(mod:localization_file())
+	end
+
 	self:add_localized_strings(MenuBuilder.LOCALIZATION_STRINGS)
 	MenuBuilder.LOCALIZATION_STRINGS = {}
 end)
