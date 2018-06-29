@@ -96,7 +96,11 @@ function MenuBuilder._init_templates()
 	
 	MenuBuilder.TEMPLATES.input = {
 		validate_value = function(item)
-			return string.match(item:value(), item:parameters().match_pattern) and item:value() or ""
+			if string.match(item:value(), item:parameters().match_pattern) then
+				return item:value(), false
+			end
+			
+			return item.last_value, true
 		end, 
 		
 		serialize_value = function(item) 
@@ -115,7 +119,7 @@ function MenuBuilder._init_templates()
 				return math.round(item:value() * p) / p
 			end
 			
-			return item:value()
+			return item:value(), false
 		end,
 	}
 end

@@ -67,8 +67,12 @@ function MenuBuilderInitiator:_initialize_callbacks()
 		return result
 	end
 	
-	MenuCallbackHandler[self._clbk_id] = MenuCallbackHandler[self._clbk_id] or function(_, item)	
-		if item.validate_value then item:set_value(item.validate_value(item)) end
+	MenuCallbackHandler[self._clbk_id] = MenuCallbackHandler[self._clbk_id] or function(_, item)
+		if item.validate_value then 
+			local v = item.validate_value(item)
+			item:set_value(v)
+			item.last_value = v
+		end
 		
 		local serialized_value = item.serialize_value and item.serialize_value(item) or item.value and item:value()
 		
@@ -157,6 +161,7 @@ function MenuBuilderInitiator:_set_item_parameters(i_type, i_name, item, i_data)
 			local v = item.deserialize_value and item.deserialize_value(initial_value) or initial_value
 			
 			if v ~= nil then
+				item.last_value = v
 				item:set_value(v)
 			end
 		end
